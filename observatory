@@ -1,0 +1,124 @@
+// ---------- observatoryKeypad.js ----------
+// Control Room Keypad Puzzle
+// QWERTY-style typing password entry
+
+import { drawSceneImage, fadeOverlay } from "./renderUtils.js";
+
+export class ObservatoryKeypadScene {
+  constructor(manager) {
+    this.manager = manager;
+    this.fade = 1;
+
+    this.canShowKeyBar = false;
+
+    this.bg = new Image();
+    this.bg.src = "assets/observatory_keypad.png"; // ⭐ Your keypad PNG here
+
+    this.inputBuffer = "";
+    this.maxLength = 12;  // configurable
+    this.errorMessage = "";
+    this.errorTimer = 0;
+
+    // Set the password
+    this.PASSWORD = "ORION";  // ⭐ change this to anything
+  }
+
+  // -------------------------------------------------------------
+  init() {
+    this.fade = 1;
+    this.inputBuffer = "";
+    this.errorMessage = "";
+  }
+
+  update(dt) {
+    if (this.fade > 0) this.fade = Math.max(0, this.fade - dt / 500);
+
+    if (this.errorTimer > 0) {
+      this.errorTimer -= dt;
+      if (this.errorTimer <= 0) this.errorMessage = "";
+    }
+  }
+
+  // -------------------------------------------------------------
+  render(ctx) {
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+
+    drawSceneImage(ctx, this.bg, ctx.canvas);
+
+    // Password entry text box
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(W / 2 - 200, H * 0.15, 400, 60);
+
+    ctx.font = '32px "Pixel-Regular", monospace';
+    ctx.fillStyle = "#00ffcc";
+    ctx.textAlign = "center";
+
+    ctx.fillText(this.inputBuffer, W / 2, H * 0.15 + 42);
+
+    // Error message
+    if (this.errorMessage) {
+      ctx.fillStyle = "#ff4444";
+      ctx.font = '22px "Pixel-Regular"';
+      ctx.fillText(this.errorMessage, W / 2, H * 0.28);
+    }
+
+    fadeOverlay(ctx, this.fade);
+  }
+
+  // -------------------------------------------------------------
+  handleInput(e) {
+    const key = e.key;
+
+    // Cancel keypad and return to door scene
+    if (key === "Escape" || key === "escape") {
+      import("./observatoryMain.js").then(({ ObservatoryMainScene }) =>
+        this.manager.set(new ObservatoryMainScene(this.manager))
+      );
+      return;
+    }
+
+    // Submit password
+    if (key === "Enter" || key === "enter") {
+      this.submitPassword();
+      return;
+    }
+
+    // Backspace support
+    if (key === "Backspace" || key === "backspace") {
+      this.inputBuffer = this.inputBuffer.slice(0, -1);
+      return;
+    }
+
+    // Accept only letters + numbers (you can expand this)
+    if (/^[a-zA-Z0-9]$/.test(key)) {
+      if (this.inputBuffer.length < this.maxLength) {
+        this.inputBuffer += key.toUpperCase();
+      }
+      return;
+    }
+  }
+
+  // -------------------------------------------------------------
+  submitPassword() {
+    if (this.inputBuffer === this.PASSWORD) {
+      // SUCCESS
+      localStorage.setItem("controlRoomUnlocked", "true");
+
+      this.errorMessage = "ACCESS GRANTED";
+      this.errorTimer = 1200;
+
+      setTimeout(() => {
+        import("./observatoryMain.js").then(({ ObservatoryMainScene }) =>
+          this.manager.set(new ObservatoryMainScene(this.manager))
+        );
+      }, 1200);
+
+    } else {
+      // FAILURE
+      this.errorMessage = "ACCESS DENIED";
+      this.errorTimer = 1200;
+      this.inputBuffer = "";
+    }
+  }
+}
